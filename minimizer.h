@@ -62,7 +62,6 @@ template <typename T, int dim> cv::Vec<double, dim> Nelder_Mead_Optimizer(T func
 
         // break after max_iter
         if (max_iter && iteration >= max_iter) {
-            std::cout << "max_iter: " << iteration << std::endl;
             return std::get<0>(result[0]);
         }
 
@@ -80,7 +79,6 @@ template <typename T, int dim> cv::Vec<double, dim> Nelder_Mead_Optimizer(T func
         }
 
         if (no_improv >= no_improv_break) {
-            std::cout << "no improve: " << iteration << "\n";
 
             return std::get<0>(result[0]);
         }

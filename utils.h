@@ -10,19 +10,19 @@
 * @param image входное BGR изображение
 * @param border_size размер границы
 */
-cv::Mat make_border(const cv::Mat& image, int border_size);
+cv::UMat make_border(const cv::UMat& image, int border_size);
 
 /* Убирает границы барьера
 * @param image входное BGR изображение
 * @param border_size размер границы
 */
-cv::Mat remove_border(const cv::Mat& image, int border_size);
+cv::UMat remove_border(const cv::UMat& image, int border_size);
 
 /* Создаёт гистограмму распределения одного цветового канала
 * @param cnl входной канал
 * @param hist выходной массив для гистограммы
 */
-void calc_cnl_hist(const cv::Mat& cnl, cv::Mat& hist);
+void calc_cnl_hist(const cv::UMat& cnl, cv::Mat& hist);
 
 /* Считает отклонение от белого для каждого пикселя изображения, как евкликдову норму
 * @param img входное изображение

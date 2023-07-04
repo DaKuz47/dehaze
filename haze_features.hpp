@@ -11,20 +11,20 @@
 серого, сине - жёлтого, красно - зелёного
 * @param image - входное BGR изображение
 */
-std::vector<cv::Mat> contrastEnergy(const cv::Mat& image);
+std::vector<cv::UMat> contrastEnergy(const cv::UMat& image);
 
 /* Функция, рассчитывает энтропию изображения, принимает серый канал изображения
 * @param gray входный серый канал изображения
 * @param patch_size размер локального участка
 */
-double imageEntropy(const cv::Mat& gray, int patch_size);
+double imageEntropy(const cv::UMat& gray, int patch_size);
 
 /* Функция, считает стандартное отклонение
 * @param gray входный серый канал изображения
 * @param gaussKernel ядро фильтра Гаусса
 * @param mu мю
 */
-double stdDeviation(const cv::Mat& gray, const cv::Mat& gaussKernel, double mu);
+double stdDeviation(const cv::UMat& gray, const cv::Mat& gaussKernel, double mu);
 
 /* Функция, считает нормализованную дисперсию
 */

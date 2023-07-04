@@ -1,7 +1,7 @@
 #include "utils.h"
 
 //Создаёт барьер из граничных участков изображения
-cv::Mat make_border(const cv::Mat& image, int border_size) {
+cv::UMat make_border(const cv::UMat& image, int border_size) {
 	int size_top = border_size / 2;
 	int size_bottom{};
 	if (border_size % 2 == 0) {
@@ -11,23 +11,22 @@ cv::Mat make_border(const cv::Mat& image, int border_size) {
 		size_bottom = size_top;
 	}
 
-	cv::Mat border_top = image.rowRange(0, size_top);
-	cv::Mat border_bottom = image.rowRange(image.rows - size_bottom - 1, image.rows);
-	cv::Mat column_matx;
-	std::vector<cv::Mat> concat_order = { border_top, image, border_bottom };
-	cv::vconcat(concat_order, column_matx);
+	cv::UMat bordered_matx;
+	cv::UMat border_top = image.rowRange(0, size_top);
+	cv::UMat border_bottom = image.rowRange(image.rows - size_bottom - 1, image.rows);
+	std::vector<cv::UMat> concat_order = { border_top, image, border_bottom };
+	cv::vconcat(concat_order, bordered_matx);
 
-	cv::Mat border_left = column_matx.colRange(0, size_top);
-	cv::Mat border_right = column_matx.colRange(column_matx.cols - size_bottom - 1, column_matx.cols);
-	cv::Mat bordered_matx;
-	concat_order = { border_left, column_matx, border_right };
+	cv::UMat border_left = bordered_matx.colRange(0, size_top);
+	cv::UMat border_right = bordered_matx.colRange(bordered_matx.cols - size_bottom - 1, bordered_matx.cols);
+	concat_order = { border_left, bordered_matx, border_right };
 	cv::hconcat(concat_order, bordered_matx);
 
 	return bordered_matx;
 }
 
 // Убирает границы барьера
-cv::Mat remove_border(const cv::Mat& image, int border_size) {
+cv::UMat remove_border(const cv::UMat& image, int border_size) {
 	int size_top = border_size / 2;
 	int size_bottom{};
 	if (border_size % 2 == 0) {
@@ -37,19 +36,18 @@ cv::Mat remove_border(const cv::Mat& image, int border_size) {
 		size_bottom = size_top;
 	}
 
-	cv::Mat center_matx = image(cv::Range(size_top, image.cols - size_bottom - 1),
+	cv::UMat center_matx = image(cv::Range(size_top, image.cols - size_bottom - 1),
 								cv::Range(size_top, image.rows - size_bottom - 1));
 
 	return center_matx;
 }
 
 // Создаёт гистограмму распределения одного цветового канала
-void calc_cnl_hist(const cv::Mat& cnl, cv::Mat& hist) {
-	int ch[] = { 0 };
-	int histSize[] = { 256 };
-	float h_ranges[] = { 0, 256 };
-	const float* ranges[] = { h_ranges };
-	cv::calcHist(&cnl, 1, ch, cv::noArray(), hist, 1, histSize, ranges, true);
+void calc_cnl_hist(const cv::UMat& cnl, cv::Mat& hist) {
+	std::vector<int> channels = { 0 };
+	std::vector<int> histSize = { 256 };
+	std::vector<float> h_ranges = { 0.0, 256.0 };
+	cv::calcHist(std::vector<cv::UMat> {cnl}, channels, cv::noArray(), hist, histSize, h_ranges);
 }
 
 // Считает отклонение от белого для каждого пикселя изображения, как евкликдову норму

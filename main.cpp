@@ -1,5 +1,6 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <ctime>
 
 #include "dehaze.h"
 
@@ -44,8 +45,12 @@ int main(int argc, char** argv)
     {
         std::cout << "Image readed successfully: " << srcFile << std::endl;
     }
-
+    auto start = std::clock();
     cv::Mat dehazed = dehaze(img, path_size, max_iter, eps, lamda, tmin, dp, log);
+    auto end = std::clock();
+    if (log) {
+        std::cout << "Time (sec): " << (end - start) / 1000.0 << "\n";
+    }
 
     if (show)
     {

@@ -8,7 +8,7 @@
 
 /* Приводит ядро к нужному виду для свёртки
 */
-cv::Point prepareKernel(const cv::Mat& kernel_in, cv::Mat& kernel_out) {
+cv::Point prepareKernel(const cv::UMat& kernel_in, cv::UMat& kernel_out) {
 	cv::flip(kernel_in, kernel_out, -1);
 	cv::Point anchor(kernel_out.cols - kernel_out.cols / 2 - 1, kernel_out.rows - kernel_out.rows / 2 - 1);
 
@@ -23,35 +23,40 @@ cv::Point prepareKernel(const cv::Mat& kernel_in, cv::Mat& kernel_out) {
 @param t пороговое значения для подавления шума
 @param k коэффициент насыщения (semisaturatoin ?)
 */
-void channelContrastEnergy(const cv::Mat& image_clr, cv::Mat& out_ce_clr, double sigma, double t, double k) {
+void channelContrastEnergy(const cv::UMat& image_clr, cv::UMat& out_ce_clr, double sigma, double t, double k) {
 	const int border_size = 20;
-	cv::Mat bordered_img = make_border(image_clr, border_size);
+	cv::UMat bordered_img = make_border(image_clr, border_size);
 
 	std::vector<double> kernel = gaussianKernel(sigma);
-	cv::Mat y_kernel(kernel);
-	cv::Mat x_kernel, conv_x, conv_y;
+	cv::UMat y_kernel = cv::Mat(kernel).getUMat(cv::ACCESS_RW);
+	cv::UMat x_kernel, conv_x, conv_y;
 	cv::transpose(y_kernel, x_kernel);
 
-	cv::Mat flipped_x_kernel, flipped_y_kernel;
+	cv::UMat flipped_x_kernel, flipped_y_kernel;
 	cv::Point anchorx = prepareKernel(x_kernel, flipped_x_kernel);
 	cv::Point anchory = prepareKernel(y_kernel, flipped_y_kernel);
 	cv::filter2D(bordered_img, conv_x, -1, flipped_x_kernel, anchorx, 0.0, cv::BORDER_CONSTANT);
 	cv::filter2D(bordered_img, conv_y, -1, flipped_y_kernel, anchory, 0.0, cv::BORDER_CONSTANT);
 
-	cv::Mat z_bordered;
-	cv::sqrt(conv_x.mul(conv_x) + conv_y.mul(conv_y), z_bordered);
-	cv::Mat z = remove_border(z_bordered, border_size);
+	cv::add(conv_x.mul(conv_x), conv_y.mul(conv_y), bordered_img);
+	cv::sqrt(bordered_img, bordered_img);
+	bordered_img = remove_border(bordered_img, border_size);
 
 	double z_max{};
-    cv::minMaxIdx(z, nullptr, &z_max);
+    cv::minMaxIdx(bordered_img, nullptr, &z_max);
 
-	cv::Mat ce_clr_temp = (z_max * z) / (z + z_max * k) - t;
-    cv::threshold(ce_clr_temp, out_ce_clr, 0.0000001, 0, cv::THRESH_TOZERO);
+	cv::UMat temp;
+	cv::add(bordered_img, z_max, temp);
+	cv::multiply(temp, k, temp);
+	cv::multiply(bordered_img, z_max, bordered_img);
+	cv::divide(bordered_img, temp, bordered_img);
+	cv::add(bordered_img, -t, bordered_img);
+    cv::threshold(bordered_img, out_ce_clr, 0.0000001, 0, cv::THRESH_TOZERO);
 
 }
 
 // Функция, рассчитывает контрастную энергию для трёх цветовых каналов изображения
-std::vector<cv::Mat> contrastEnergy(const cv::Mat& image_in) {
+std::vector<cv::UMat> contrastEnergy(const cv::UMat& image_in) {
 	assert(image_in.channels() == 3 && "not bgr image");
 
 	const double sigma = 3.25; //средне квадратичное отклонение в фильтре гаусса
@@ -61,27 +66,40 @@ std::vector<cv::Mat> contrastEnergy(const cv::Mat& image_in) {
 	const double t_rg = 2.069284034165411e-4 * 255;
 	const int border_size = 20;
 
-	cv::Mat image;
+	cv::UMat image;
 	image_in.convertTo(image, CV_64F);
-	std::vector<cv::Mat> rgb_cnls;
+	std::vector<cv::UMat> rgb_cnls;
 	cv::split(image, rgb_cnls);
 
-	cv::Mat gray_cnl = 0.299 * rgb_cnls[2] + 0.587 * rgb_cnls[1] + 0.114 * rgb_cnls[0];
-	cv::Mat by_cnl = 0.5 * rgb_cnls[2] + 0.5 * rgb_cnls[1] - rgb_cnls[0];
-	cv::Mat rg_cnl = rgb_cnls[2] - rgb_cnls[1];
+	cv::UMat temp1;
+	cv::UMat temp2;
+	cv::UMat temp3;
+	cv::multiply(rgb_cnls[2], 0.299, temp1);
+	cv::multiply(rgb_cnls[1], 0.587, temp2);
+	cv::multiply(rgb_cnls[0], 0.114, temp3);
+	cv::UMat gray_cnl;
+	cv::add(temp1, temp2, gray_cnl);
+	cv::add(gray_cnl, temp3, gray_cnl);
+
+	cv::multiply(rgb_cnls[2], 0.5, temp1);
+	cv::multiply(rgb_cnls[1], 0.5, temp2);
+	cv::UMat by_cnl;
+	cv::add(temp1, temp1, by_cnl);
+	cv::subtract(by_cnl, rgb_cnls[0], by_cnl);
+	cv::UMat rg_cnl;
+	cv::subtract(rgb_cnls[2], rgb_cnls[1], rg_cnl);
 	
-	std::vector<cv::Mat> image_cnls = { gray_cnl, by_cnl, rg_cnl };
-	std::vector<cv::Mat> out_ce(3);
+	std::vector<cv::UMat> image_cnls = { gray_cnl, by_cnl, rg_cnl };
 	std::vector<double> ce_t_coef = { t_gray, t_by, t_rg };
-	for (int i = 0; i < out_ce.size(); i++) {
-		channelContrastEnergy(image_cnls[i], out_ce[i], sigma, ce_t_coef[i], k);
+	for (int i = 0; i < image_cnls.size(); i++) {
+		channelContrastEnergy(image_cnls[i], image_cnls[i], sigma, ce_t_coef[i], k);
 	}
 
-	return out_ce;
+	return image_cnls;
 }
 
 // рассчитывает энтропию изображения, принимает серый канал изображения
-double imageEntropy(const cv::Mat& gray, int patch_size) {
+double imageEntropy(const cv::UMat& gray, int patch_size) {
 	assert(gray.channels() == 1 && "not gray image");
 
 	cv::Mat hist;
@@ -98,10 +116,11 @@ double imageEntropy(const cv::Mat& gray, int patch_size) {
 }
 
 // считает стандартное отклонение
-double stdDeviation(const cv::Mat& gray, const cv::Mat& gaussKernel, double mu) {
+double stdDeviation(const cv::UMat& gray, const cv::UMat& gaussKernel, double mu) {
 	assert(gray.channels() == 1 && "not gray image");
 
-	cv::Mat temp = (gray - mu);
+	cv::UMat temp;
+	cv::subtract(gray, mu, temp);
 	cv::pow(temp, 2, temp);
 	temp = temp.mul(gaussKernel);
 	cv::sqrt(temp, temp);
@@ -115,22 +134,24 @@ double normDisp(double std, double mu) {
 }
 
 // Количественная оценка дымки в локальном участке изображения
-double tmap(cv::Vec<double, 1> x, cv::Mat& patch, cv::Scalar a, int patch_size, cv::Mat& gaussianKernel) {
+double tmap(cv::Vec<double, 1> x, cv::UMat& patch, cv::Scalar a, int patch_size, cv::UMat& gaussianKernel) {
 	double t = x[0];
 
-	cv::Mat j;
+	cv::UMat j;
 	patch.convertTo(j, CV_64F);
-	j = (j - a) / t + a;
+	cv::subtract(j, a, j);
+	cv::divide(j, t, j);
+	cv::add(j, a, j);
 	j.convertTo(j, CV_8U);
-	cv::Mat jgray;
+	cv::UMat jgray;
 	cv::cvtColor(j, jgray, cv::COLOR_BGR2GRAY);
-	std::vector<int> shape = { patch_size, patch_size };
-	cv::Mat square_j = j.reshape(3, shape);
+
+	cv::UMat square_j = j.reshape(3, patch_size);
 	cv::transpose(square_j, square_j);
-	std::vector<cv::Mat> contrast_energy = contrastEnergy(square_j);
+	std::vector<cv::UMat> contrast_energy = contrastEnergy(square_j);
 	double entropy = imageEntropy(jgray, patch_size);
-	jgray.convertTo(jgray, CV_64F);
-	jgray = jgray / 255;
+	jgray.convertTo(jgray, CV_64F, 1./255.);
+
 	double mu = cv::sum(jgray.mul(gaussianKernel))[0];
 	double stddev = stdDeviation(jgray, gaussianKernel, mu);
 	double norm = normDisp(stddev, mu);
@@ -172,8 +193,10 @@ cv::Mat tmap_optimal(cv::Mat& patches, cv::Scalar a, int patch_size, int max_ite
 		tmp_patch = tmp_patch / a;
 		cv::minMaxIdx(tmp_patch.reshape(1, shape), &min_val);
 		
+		cv::UMat fast_img = i.getUMat(cv::ACCESS_RW);
+		cv::UMat fast_gaus = sheped_gauss.getUMat(cv::ACCESS_RW);
 		cv::Vec<double, 1> xmin(1-min_val);
-		auto tmap_binded = bind(tmap, _1, i, a, patch_size, sheped_gauss);
+		auto tmap_binded = bind(tmap, _1, fast_img, a, patch_size, fast_gaus);
 
 		auto res = Nelder_Mead_Optimizer<decltype(tmap_binded), 1>(tmap_binded, xmin, 1);
 		
