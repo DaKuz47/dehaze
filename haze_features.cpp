@@ -177,32 +177,32 @@ double tmap(cv::Vec<double, 1> x, cv::UMat& patch, cv::Scalar a, int patch_size,
 
 // Поиск оптимальной карты пропускания
 using namespace std::placeholders;
-cv::Mat tmap_optimal(cv::Mat& patches, cv::Scalar a, int patch_size, int max_iter, double eps, bool log) {
+cv::Mat tmap_optimal(cv::UMat& patches, cv::Scalar a, int patch_size, int max_iter, double eps, bool log) {
 	cv::Mat t_opt = cv::Mat::zeros(1, patches.cols, CV_64F);
 	cv::Mat gauss = cv::getGaussianKernel(patch_size, patch_size / 4, CV_64F);
 	cv::mulTransposed(gauss, gauss, false);
 	std::vector<int> shape = { patch_size * patch_size, 1 };
 	cv::Mat sheped_gauss = gauss.reshape(1, shape);
+	cv::UMat fast_gaus = sheped_gauss.getUMat(cv::ACCESS_RW);
 
 	shape = { patches.rows * patches.channels() };
 	for (int patch = 0; patch < patches.cols; patch++) {
-		cv::Mat i = patches(cv::Range(0, patches.rows), cv::Range(patch, patch + 1));
+		cv::UMat i = patches(cv::Range(0, patches.rows), cv::Range(patch, patch + 1));
 		double min_val{};
 		cv::Mat tmp_patch;
 		i.convertTo(tmp_patch, CV_64F);
 		tmp_patch = tmp_patch / a;
 		cv::minMaxIdx(tmp_patch.reshape(1, shape), &min_val);
 		
-		cv::UMat fast_img = i.getUMat(cv::ACCESS_RW);
-		cv::UMat fast_gaus = sheped_gauss.getUMat(cv::ACCESS_RW);
 		cv::Vec<double, 1> xmin(1-min_val);
-		auto tmap_binded = bind(tmap, _1, fast_img, a, patch_size, fast_gaus);
+		auto tmap_binded = bind(tmap, _1, i, a, patch_size, fast_gaus);
 
+		auto start = std::clock();
 		auto res = Nelder_Mead_Optimizer<decltype(tmap_binded), 1>(tmap_binded, xmin, 1);
-		
+		auto end = std::clock();
 
 		if (log) {
-			std::cout << patch << ": " << xmin[0] << std::endl;
+			std::cout << patch << ": " << xmin[0] << ", Time (sec): " << (end-start)/1000.0 << "\n" << std::endl;
 		}
 		
 		t_opt.at<double>(0, patch) = res[0];

@@ -38,4 +38,4 @@ double normDisp(double std, double mu);
 * @param eps точность в алгоритме Нелдера Мида
 * @param log вывод процесса
 */
-cv::Mat tmap_optimal(cv::Mat& patches, cv::Scalar a, int patch_size, int max_iter, double eps, bool log);
+cv::Mat tmap_optimal(cv::UMat& patches, cv::Scalar a, int patch_size, int max_iter, double eps, bool log);

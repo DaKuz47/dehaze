@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/ocl.hpp>
 #include <iostream>
 #include <ctime>
 
@@ -18,6 +19,7 @@ int main(int argc, char** argv)
         "{log         |0                      | Enable logging |}"
         "{out         |res.png                | save result image |}"
         "{show        |1                      | show result image |}"
+        "{cpu_mode    |0                      | calculation on cpu}"
     };
     cv::CommandLineParser parser(argc, argv, keys);
     parser.printMessage();
@@ -32,7 +34,12 @@ int main(int argc, char** argv)
     double dp = parser.get<double>("dp");
     bool log = parser.get<int>("log") != 0;
     bool show = parser.get<int>("show") != 0;
+    bool cpu_mode = parser.get<int>("cpu_mode") != 0;
 
+    if (cpu_mode) {
+        cv::ocl::setUseOpenCL(false);
+        std::cout << "OpenCl disabled\n";
+    }
 
     cv::Mat img = cv::imread(srcFile, cv::IMREAD_COLOR);
 

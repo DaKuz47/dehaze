@@ -14,7 +14,8 @@ cv::Mat dehaze(const cv::Mat& img, int patch_size, int max_iter, double eps, int
 	cv::Scalar a_s(a[0], a[1], a[2]);
 
 	cv::Mat i = im2col<uchar>(img, patch_size, patch_size);
-	cv::Mat tmap = tmap_optimal(i, a_s, patch_size, max_iter, eps, log);
+	cv::UMat fast_img = i.getUMat(cv::ACCESS_RW, cv::USAGE_ALLOCATE_DEVICE_MEMORY);
+	cv::Mat tmap = tmap_optimal(fast_img, a_s, patch_size, max_iter, eps, log);
 
 
 	//Удаление блочных артефактов с карты пропускания
